@@ -11,6 +11,7 @@ from transformers import EarlyStoppingCallback
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase, PaddingStrategy
 from transformers import TrainingArguments, Trainer
 
+from Answer_Generation import load_prompts
 from peft import LoraConfig, get_peft_model, TaskType
 
 
@@ -52,25 +53,52 @@ USE_PEFT = False                # Decide whether to use PEFT
 #     tokenized_example['label'] = torch.tensor(option_to_index[example['answer']], dtype=torch.long)
 
 #     return tokenized_example
-def preprocess(example, tokenizer):
-    first_sentence = "[CLS] " + example['context']
-    second_sentences = [" #### " + example['prompt'] + " [SEP] " + example[option] + " [SEP]" for option in 'ABCDE']
+# def preprocess(example, tokenizer):
+#     first_sentence = "[CLS] " + example['context']
+#     second_sentences = [" #### " + example['prompt'] + " [SEP] " + example[option] + " [SEP]" for option in 'ABCDE']
     
-    option_to_index = {option: idx for idx, option in enumerate('ABCDE')}
+#     option_to_index = {option: idx for idx, option in enumerate('ABCDE')}
     
-    # Tokenize each (context, choice) pair separately
-    tokenized_example = tokenizer(
-        [first_sentence] * 5,  # Repeat the same first sentence for all choices
-        second_sentences,       # Each choice corresponds to one second sentence
-        truncation='only_first',
-        max_length=256,
-        padding="max_length",  # Ensures equal sequence lengths
-        return_tensors=None     # FIXED: Returns lists instead of PyTorch tensors
-    )
+#     # Tokenize each (context, choice) pair separately
+#     tokenized_example = tokenizer(
+#         [first_sentence] * 5,  # Repeat the same first sentence for all choices
+#         second_sentences,       # Each choice corresponds to one second sentence
+#         truncation='only_first',
+#         max_length=256,
+#         padding="max_length",  # Ensures equal sequence lengths
+#         return_tensors=None     # FIXED: Returns lists instead of PyTorch tensors
+#     )
 
+#     tokenized_example['label'] = option_to_index[example['answer']]
+
+#     return tokenized_example
+
+def preprocess(example, tokenizer):
+
+    option_to_index = {option: idx for idx, option in enumerate('ABCDE')}
+
+    prompts = load_prompts()
+    prompt = prompts.get("answer_generate_prompt", "")
+
+    for idx in range(len(example)):
+        train_ex_prompt = example.loc[idx,'prompt']
+        train_ex_multiple_choice_df = example.loc[idx,['A','B','C','D','E']]
+        train_ex_multiple_choice = ""
+        for index, i in zip(list(train_ex_multiple_choice_df.index), list(train_ex_multiple_choice_df.values)):
+            train_ex_multiple_choice += index + ' : ' + i + '\n'
+    
+        final_prompt = prompt.replace("{Scientific_Problem}", train_ex_prompt)\
+                            .replace("{Multiple_Choice}", train_ex_multiple_choice)
+        
+        example.loc[idx,'final_prompt'] = final_prompt
+
+    example = example.drop(columns = [i for i in example.columns() if i not in ['final_prompt','answer']])
+
+    tokenized_example = example.map(lambda x: tokenizer(x['final_prompt']).to(model.device))
     tokenized_example['label'] = option_to_index[example['answer']]
 
     return tokenized_example
+
 
 
 def map_at_3(predictions, labels):
@@ -240,10 +268,10 @@ if __name__ == '__main__':
         model=model,
         args=training_args,
         tokenizer=tokenizer,
-        data_collator=DataCollatorForMultipleChoice(tokenizer=tokenizer),
         train_dataset=tokenized_dataset,
         eval_dataset=tokenized_dataset_valid,
         compute_metrics = compute_metrics,
+        data_collator=DataCollatorForMultipleChoice(tokenizer=tokenizer),
         #callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
     )
 
