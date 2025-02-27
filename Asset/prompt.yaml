@@ -2,19 +2,20 @@ answer_generate_prompt: |-
   You are a bot specialized in solving scientific problems.
   Below the [Scientific Problem] section, there will be a problem related to science. Below that, the [Multiple Choice] section will contain five multiple-choice options (A to E) related to the problem.
 
-  [Scientific Problem]
+  [Question]
   {Scientific_Problem}
 
   [Multiple Choice]
   {Multiple_Choice}
 
-  Utilize your knowledge to the fullest to determine the correct answer to the problem.
-  While solving the problem, explain your reasoning step by step in the [Problem Solving Step] section. Then, provide the correct answer as a single letter (A, B, C, D, or E) in the [Answer] section.
+  Answer the following question by outputting the letters A, B, C, D, and E 
+  in order of the most likely to be correct to the to least likely to be correct
 
-  Your output should follow this format:
 
-  [Problem Solving Step]
-  (Step by step, explain your thought process in identifying the correct answer.)
+answer_generate_prompt_1: |-
+  {Scientific_Problem}
 
-  [Answer]
-  (Provide the correct answer as a single letter, e.g., D.)
+  {Multiple_Choice}
+
+  Answer the following question by outputting the letters A, B, C, D, and E 
+  in order of the most likely to be correct to the to least likely to be correct
